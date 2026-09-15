@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick-Commerce Shelf Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    color-scheme:light;
+    --surface:#fcfcfb; --card:#ffffff; --line:#e6e5e1; --grid:#efeeea;
+    --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#8a8985;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+    --seq1:#cde2fb; --seq2:#9ec5f4; --seq3:#5598e7; --seq4:#256abf; --seq5:#104281;
+    --good:#0ca30c; --critical:#d03b3b; --warning:#fab219;
+    --other:#b9b8b3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --surface:#1a1a19; --card:#232322; --line:#35352f; --grid:#2c2c29;
+      --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8c8b84;
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+      --seq1:#184f95; --seq2:#256abf; --seq3:#3987e5; --seq4:#6da7ec; --seq5:#b7d3f6;
+      --other:#5a5a55;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --surface:#1a1a19; --card:#232322; --line:#35352f; --grid:#2c2c29;
+    --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8c8b84;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --seq1:#184f95; --seq2:#256abf; --seq3:#3987e5; --seq4:#6da7ec; --seq5:#b7d3f6;
+    --other:#5a5a55;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.45 "Segoe UI",Inter,system-ui,Arial,sans-serif;padding-block:0 40px;padding-inline:20px}
+  header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:baseline;justify-content:space-between;padding:22px 0 10px;border-bottom:1px solid var(--line)}
+  h1{font-size:22px;margin:0;font-weight:700}
+  h1 small{display:block;font-size:13px;font-weight:400;color:var(--ink-2);margin-top:4px}
+  .src{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+  .src label.btn{border:1px solid var(--line);background:var(--card);padding:6px 12px;border-radius:8px;cursor:pointer;color:var(--ink)}
+  .src input[type=file]{display:none}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--grid);color:var(--ink-2);font-size:12px}
+  .filters{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:5}
+  .filters label{font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:3px}
+  .filters select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:140px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .tile .v{font-size:26px;font-weight:700;line-height:1.1}
+  .tile .l{font-size:12px;color:var(--ink-2);margin-top:4px}
+  .tile .d{font-size:12px;color:var(--ink-3);margin-top:2px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  section h2{font-size:15px;margin:0 0 2px;font-weight:600}
+  section p.sub{margin:0 0 12px;font-size:12px;color:var(--ink-2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){.two{grid-template-columns:1fr}}
+  .chart{position:relative;height:320px}
+  .chart.tall{height:420px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin:0 0 8px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--grid);text-align:left;white-space:nowrap}
+  th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600;position:sticky;top:0;background:var(--card)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .tbl{overflow:auto;max-height:460px;border:1px solid var(--grid);border-radius:8px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600}
+  .pill.ad{background:color-mix(in srgb,var(--s2) 18%,transparent);color:var(--ink)}
+  .pill.org{background:color-mix(in srgb,var(--s1) 16%,transparent);color:var(--ink)}
+  .pill.oos{background:color-mix(in srgb,var(--critical) 16%,transparent);color:var(--ink)}
+  .pill.ok{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--ink)}
+  .rank{display:inline-block;min-width:34px;text-align:center;padding:2px 6px;border-radius:6px;font-weight:600;font-variant-numeric:tabular-nums}
+  .grid{display:grid;gap:3px}
+  .cell{height:18px;border-radius:3px;background:var(--grid);position:relative}
+  .cell.ad{background:var(--s2)} .cell.org{background:var(--s1)} .cell.trk{outline:2px solid var(--s3);outline-offset:-2px}
+  .cell.oos{background:repeating-linear-gradient(135deg,var(--critical) 0 3px,transparent 3px 6px)}
+  .rowlab{font-size:12px;color:var(--ink-2);padding-right:8px;white-space:nowrap;align-self:center}
+  .tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--surface);padding:6px 9px;border-radius:6px;font-size:12px;z-index:50;display:none;max-width:320px}
+  input.search{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:260px;max-width:100%}
+  footer{font-size:12px;color:var(--ink-3);margin-top:24px}
+  a{color:var(--s1)}
+  .note{font-size:12px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Quick-Commerce Shelf Monitor <small>Search rank, share of shelf, sponsored slots, price and availability on Blinkit, by keyword and pincode.</small></h1>
+  <div class="src">
+    <span id="srcBadge" class="badge">Sample data</span>
+    <label class="btn">Load tracker CSVs<input id="fileIn" type="file" multiple accept=".csv"></label>
+    <span class="note">Drop the tracker's <code>allresults.csv</code> (and optionally <code>ranks.csv</code>). Nothing leaves your browser.</span>
+  </div>
+</header>
+
+<div class="filters">
+  <label>Keyword<select id="fKw"></select></label>
+  <label>Pincode<select id="fPin"><option value="">All pincodes</option></select></label>
+  <label>Top N slots<select id="fTop"><option value="10">Top 10</option><option value="20" selected>Top 20</option><option value="40">Top 40</option><option value="0">All results</option></select></label>
+  <label>Run<select id="fRun"></select></label>
+</div>
+
+<div class="tiles" id="tiles"></div>
+
+<section>
+  <h2>Share of shelf by brand</h2>
+  <p class="sub">Share of the top-N result slots held by each brand for the selected keyword, split by organic and sponsored placements. Brands beyond the first seven fold into Other.</p>
+  <div class="legend"><span><i style="background:var(--s1)"></i>Organic</span><span><i style="background:var(--s2)"></i>Sponsored</span></div>
+  <div class="chart tall"><canvas id="cShare"></canvas></div>
+</section>
+
+<div class="two">
+  <section>
+    <h2>Where the ads sit</h2>
+    <p class="sub">Each row is a pincode; each cell is a result slot. Orange cells are sponsored, blue organic, striped red sold out. A green outline marks a tracked SKU. Hover for the product.</p>
+    <div class="legend"><span><i style="background:var(--s2)"></i>Sponsored</span><span><i style="background:var(--s1)"></i>Organic</span><span><i style="outline:2px solid var(--s3);outline-offset:-2px;background:var(--grid)"></i>Tracked SKU</span><span><i style="background:repeating-linear-gradient(135deg,var(--critical) 0 3px,transparent 3px 6px)"></i>Sold out</span></div>
+    <div id="adGrid"></div>
+  </section>
+  <section>
+    <h2>Price ladder</h2>
+    <p class="sub">Selling price of the top results for this keyword, one bar per product, cheapest first. Tracked SKUs in green. Hover for pack size, MRP and discount.</p>
+    <div class="legend"><span><i style="background:var(--other)"></i>Other products</span><span><i style="background:var(--s3)"></i>Tracked SKU</span></div>
+    <div class="chart tall"><canvas id="cPrice"></canvas></div>
+  </section>
+</div>
+
+<section>
+  <h2>Tracked SKUs</h2>
+  <p class="sub">Where each tracked product ranks for the selected keyword, by pincode. Darker rank cells are better positions. "Not found" means the product was missing at that pincode. <span id="trackedNote"></span></p>
+  <div class="tbl"><table id="tTracked"></table></div>
+</section>
+
+<div class="two">
+  <section>
+    <h2>Availability by brand</h2>
+    <p class="sub">Sold-out results as a share of each brand's listings across the selected pincodes. Only brands with three or more listings shown. <span id="oosNote"></span></p>
+    <div class="chart"><canvas id="cOos"></canvas></div>
+  </section>
+  <section>
+    <h2>Discount depth by brand</h2>
+    <p class="sub">Median discount off MRP across each brand's listings for this keyword.</p>
+    <div class="chart"><canvas id="cDisc"></canvas></div>
+  </section>
+</div>
+
+<section id="trendSec" hidden>
+  <h2>Rank over time</h2>
+  <p class="sub">Position of each tracked SKU across runs for the selected keyword and pincode. Lower is better.</p>
+  <div class="legend" id="trendLegend"></div>
+  <div class="chart"><canvas id="cTrend"></canvas></div>
+</section>
+
+<section>
+  <h2>All captured results</h2>
+  <p class="sub">Every product returned for the selected keyword, pincode and run.</p>
+  <input class="search" id="q" placeholder="Filter by brand or product">
+  <div class="tbl" style="margin-top:10px"><table id="tAll"></table></div>
+</section>
+
+<footer>Built on a Playwright tracker that captures Blinkit's search API per keyword and pincode. Sample data captured on the dates shown in the Run selector. Repo: <a id="repoLink" href="#">qcomm-shelf-monitor</a>.</footer>
+<div class="tip" id="tip"></div>
+
+<script>
+/*__SAMPLE_DATA__*/
+</script>
+<script>
+(() => {
+const themeParam = new URLSearchParams(location.search).get('theme');
+if (themeParam === 'light' || themeParam === 'dark') document.documentElement.dataset.theme = themeParam;
+const $ = s => document.querySelector(s);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const state = { results: [], ranks: [], kw: '', pin: '', top: 20, run: '' };
+const charts = {};
+const fmtRs = v => v == null ? '' : '₹' + Number(v).toLocaleString('en-IN');
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+const tip = $('#tip');
+const showTip = (e, html) => { tip.innerHTML = html; tip.style.display = 'block'; moveTip(e); };
+const moveTip = e => { tip.style.left = Math.min(e.clientX + 14, innerWidth - 330) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; };
+const hideTip = () => tip.style.display = 'none';
+
+// ---------- data loading
+function parseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  const hdr = rows.shift();
+  return rows.filter(r => r.length > 1).map(r => Object.fromEntries(hdr.map((h, i) => [h, r[i]])));
+}
+const num = v => (v === '' || v == null || v === 'None') ? null : Number(v);
+const bool = v => String(v).toLowerCase() === 'true';
+function fromAll(rows) {
+  return rows.map(r => ({ kw: r['Keyword'], pin: r['Pincode'], status: r['Search Status'], ts: r['Timestamp'], pos: num(r['Position']),
+    ad: bool(r['Is Sponsored']), pid: r['Product ID'], brand: r['Brand Name'] || 'Unbranded', name: r['Name'], pack: r['Pack Size'],
+    price: num(r['Price (Rs)']), mrp: num(r['MRP (Rs)']), disc: num(r['Discount (Rs)']), discPct: num(r['Discount % of MRP']),
+    inv: num(r['Inventory (stock)']), maxCart: num(r['Max Cart']), oos: bool(r['Sold Out']), url: r['URL'] }));
+}
+function fromRanks(rows) {
+  return rows.map(r => ({ kw: r['Keyword'], pin: r['Pincode'], status: r['Search Status'], ts: r['Timestamp'], brand: r['Brand Name'],
+    tracked: r['Tracked Product'], matched: r['Matched'] === 'Y', card: r['Matched Card'], pack: r['Pack Size'], inv: num(r['Inventory (stock)']),
+    pos: num(r['Overall Position']), ad: bool(r['Is Sponsored']), price: num(r['Price (Rs)']), mrp: num(r['MRP (Rs)']),
+    discPct: num(r['Discount % of MRP']), oos: bool(r['Sold Out']), total: num(r['Total Results']), score: num(r['Match Score']), url: r['Product URL'] }));
+}
+const runOf = ts => (ts || '').slice(0, 10);
+
+function load(results, ranks, label) {
+  state.results = results; state.ranks = ranks;
+  $('#srcBadge').textContent = label;
+  const kws = [...new Set(results.map(r => r.kw))].sort();
+  const pins = [...new Set(results.map(r => r.pin))].sort();
+  const runs = [...new Set(results.map(r => runOf(r.ts)))].sort().reverse();
+  $('#fKw').innerHTML = kws.map(k => `<option>${k}</option>`).join('');
+  $('#fPin').innerHTML = '<option value="">All pincodes</option>' + pins.map(p => `<option>${p}</option>`).join('');
+  $('#fRun').innerHTML = runs.map(r => `<option>${r}</option>`).join('');
+  state.kw = kws[0] || ''; state.pin = ''; state.run = runs[0] || '';
+  render();
+}
+
+// ---------- selection
+function sel() {
+  const top = state.top;
+  let rs = state.results.filter(r => r.kw === state.kw && runOf(r.ts) === state.run && (!state.pin || r.pin === state.pin));
+  if (top) rs = rs.filter(r => r.pos <= top);
+  const trackedIds = new Set(state.ranks.filter(r => r.matched && r.url).map(r => r.url.split('/').pop()));
+  return { rs, trackedIds };
+}
+
+// ---------- render
+function render() {
+  const { rs, trackedIds } = sel();
+  const pins = [...new Set(rs.map(r => r.pin))].sort();
+  renderTiles(rs, pins, trackedIds);
+  renderShare(rs, pins);
+  renderAdGrid(rs, pins, trackedIds);
+  renderPrice(rs, trackedIds);
+  renderTracked();
+  renderOos(rs);
+  renderDisc(rs);
+  renderTrend();
+  renderAll(rs, trackedIds);
+}
+
+function renderTiles(rs, pins, trackedIds) {
+  const all = state.results.filter(r => runOf(r.ts) === state.run);
+  const kws = new Set(all.map(r => r.kw)).size, allPins = new Set(all.map(r => r.pin)).size;
+  const ads = rs.filter(r => r.ad).length, oos = rs.filter(r => r.oos).length;
+  const discs = rs.map(r => r.discPct).filter(v => v != null && v > 0).sort((a, b) => a - b);
+  const med = discs.length ? discs[Math.floor(discs.length / 2)] : 0;
+  const trk = rs.filter(r => trackedIds.has(r.pid)).length;
+  const tiles = [
+    [kws, 'keywords tracked', `${allPins} pincodes, run ${state.run}`],
+    [rs.length, 'result slots in view', state.top ? `top ${state.top} per pincode` : 'all captured'],
+    [pct(ads, rs.length) + '%', 'sponsored slots', `${ads} of ${rs.length}`],
+    [pct(oos, rs.length) + '%', 'sold out', `${oos} listings`],
+    [med + '%', 'median discount', 'among discounted listings'],
+    [trk, 'tracked SKU slots', 'in the current view'],
+  ];
+  $('#tiles').innerHTML = tiles.map(([v, l, d]) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div><div class="d">${d}</div></div>`).join('');
+}
+
+function chartOpts(extra) {
+  const ink2 = css('--ink-2'), grid = css('--grid');
+  return Object.assign({ responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: css('--ink'), titleColor: css('--surface'), bodyColor: css('--surface'), displayColors: false } },
+    scales: { x: { grid: { color: grid }, ticks: { color: ink2 }, border: { display: false } }, y: { grid: { color: grid }, ticks: { color: ink2 }, border: { display: false } } } }, extra || {});
+}
+function mk(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($(id), cfg); }
+
+function renderShare(rs, pins) {
+  const by = {};
+  rs.forEach(r => { by[r.brand] = by[r.brand] || { org: 0, ad: 0 }; r.ad ? by[r.brand].ad++ : by[r.brand].org++; });
+  let brands = Object.entries(by).sort((a, b) => (b[1].org + b[1].ad) - (a[1].org + a[1].ad));
+  if (brands.length > 8) { const rest = brands.slice(7).reduce((a, [, v]) => ({ org: a.org + v.org, ad: a.ad + v.ad }), { org: 0, ad: 0 }); brands = brands.slice(0, 7).concat([['Other', rest]]); }
+  const denom = rs.length || 1;
+  const o = chartOpts({ indexAxis: 'y' });
+  o.scales.x.stacked = true; o.scales.y.stacked = true; o.scales.x.ticks.callback = v => v + '%'; o.scales.x.max = 100;
+  o.plugins.tooltip.callbacks = { label: c => `${c.dataset.label}: ${c.parsed.x.toFixed(1)}% of slots (${c.raw.n} listings)` };
+  mk('#cShare', { type: 'bar', data: { labels: brands.map(b => b[0]), datasets: [
+    { label: 'Organic', data: brands.map(b => ({ x: b[1].org / denom * 100, y: b[0], n: b[1].org })), backgroundColor: css('--s1'), borderRadius: 4, barThickness: 18, borderSkipped: 'start', borderWidth: { right: 2 }, borderColor: css('--card') },
+    { label: 'Sponsored', data: brands.map(b => ({ x: b[1].ad / denom * 100, y: b[0], n: b[1].ad })), backgroundColor: css('--s2'), borderRadius: 4, barThickness: 18, borderSkipped: 'start' } ] }, options: o });
+}
+
+function renderAdGrid(rs, pins, trackedIds) {
+  const n = state.top || Math.max(...rs.map(r => r.pos), 0);
+  const g = $('#adGrid'); g.innerHTML = '';
+  pins.forEach(p => {
+    const row = document.createElement('div'); row.className = 'grid'; row.style.gridTemplateColumns = `70px repeat(${Math.min(n, 40)}, minmax(6px,1fr))`; row.style.marginBottom = '5px';
+    row.innerHTML = `<div class="rowlab">${p}</div>`;
+    const byPos = {}; rs.filter(r => r.pin === p).forEach(r => byPos[r.pos] = r);
+    for (let i = 1; i <= Math.min(n, 40); i++) {
+      const r = byPos[i]; const c = document.createElement('div'); c.className = 'cell';
+      if (r) { c.classList.add(r.oos ? 'oos' : (r.ad ? 'ad' : 'org')); if (trackedIds.has(r.pid)) c.classList.add('trk');
+        c.onmouseenter = e => showTip(e, `<b>#${i}${r.ad ? ' · sponsored' : ''}${r.oos ? ' · sold out' : ''}</b><br>${r.brand}<br>${r.name} (${r.pack})<br>${fmtRs(r.price)}${r.disc ? ' · ' + r.discPct + '% off' : ''}`);
+        c.onmousemove = moveTip; c.onmouseleave = hideTip; }
+      row.appendChild(c);
+    }
+    g.appendChild(row);
+  });
+  if (n > 40) g.insertAdjacentHTML('beforeend', '<p class="note">Showing the first 40 slots.</p>');
+}
+
+function renderPrice(rs, trackedIds) {
+  const seen = new Set();
+  const items = rs.filter(r => r.price != null && !seen.has(r.pid) && seen.add(r.pid)).sort((a, b) => a.price - b.price).slice(0, 25);
+  const o = chartOpts({ indexAxis: 'y' });
+  o.scales.x.ticks.callback = v => '₹' + v;
+  o.plugins.tooltip.callbacks = { title: c => items[c[0].dataIndex].name, label: c => { const r = items[c.dataIndex]; return [`${r.brand} · ${r.pack}`, `Price ${fmtRs(r.price)} · MRP ${fmtRs(r.mrp)}${r.disc ? ` · ${r.discPct}% off` : ''}`, `Rank #${r.pos}${r.ad ? ' (sponsored)' : ''}${r.oos ? ' · sold out' : ''}`]; } };
+  mk('#cPrice', { type: 'bar', data: { labels: items.map(r => (r.name.length > 34 ? r.name.slice(0, 33) + '…' : r.name)), datasets: [{ data: items.map(r => r.price), backgroundColor: items.map(r => trackedIds.has(r.pid) ? css('--s3') : css('--other')), borderRadius: 4, barThickness: 12, borderSkipped: 'start' }] }, options: o });
+}
+
+function rankColor(pos, total) {
+  if (pos == null) return 'transparent';
+  const t = Math.min(1, (pos - 1) / Math.max(1, Math.min(total || 40, 40) - 1));
+  const steps = ['--seq5', '--seq4', '--seq3', '--seq2', '--seq1'];
+  return css(steps[Math.min(4, Math.floor(t * 5))]);
+}
+function renderTracked() {
+  const all = state.ranks.filter(r => r.kw === state.kw && runOf(r.ts) === state.run);
+  const found = new Set(all.filter(r => r.matched).map(r => r.tracked));
+  const rows = all.filter(r => found.has(r.tracked) && (!state.pin || r.pin === state.pin));
+  const skipped = new Set(all.map(r => r.tracked)).size - found.size;
+  const t = $('#tTracked');
+  if (!state.ranks.length) { t.innerHTML = '<tr><td class="note">No ranks file loaded. Load the tracker\'s ranks.csv to see tracked SKUs.</td></tr>'; return; }
+  $('#trackedNote').textContent = skipped ? `${skipped} tracked product${skipped > 1 ? 's' : ''} not in the results for this keyword at any pincode.` : '';
+  if (!rows.length) { t.innerHTML = `<tr><td class="note">None of the tracked products appear in the results for "${state.kw}".</td></tr>`; return; }
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.dataset.theme !== 'light' || document.documentElement.dataset.theme === 'dark';
+  t.innerHTML = '<tr><th>Tracked product</th><th>Keyword</th><th>Pincode</th><th class="num">Rank</th><th>Placement</th><th class="num">Price</th><th class="num">Disc %</th><th class="num">Stock</th><th>Status</th><th>Matched listing</th></tr>' +
+    rows.sort((a, b) => a.tracked.localeCompare(b.tracked) || a.kw.localeCompare(b.kw) || a.pin.localeCompare(b.pin)).map(r => {
+      const bg = r.matched ? rankColor(r.pos, r.total) : 'transparent';
+      const fg = r.matched && ((r.pos - 1) / Math.max(1, Math.min(r.total || 40, 40) - 1) < 0.4) !== dark ? '#fff' : css('--ink');
+      return `<tr><td>${r.tracked}</td><td>${r.kw}</td><td>${r.pin}</td><td class="num">${r.matched ? `<span class="rank" style="background:${bg};color:${fg}">#${r.pos}</span>` : '<span class="note">not found</span>'}</td>
+        <td>${r.matched ? (r.ad ? '<span class="pill ad">Sponsored</span>' : '<span class="pill org">Organic</span>') : ''}</td>
+        <td class="num">${fmtRs(r.price)}</td><td class="num">${r.discPct != null ? r.discPct + '%' : ''}</td><td class="num">${r.inv ?? ''}</td>
+        <td>${r.matched ? (r.oos ? '<span class="pill oos">✕ Sold out</span>' : '<span class="pill ok">✓ In stock</span>') : (r.status !== 'ok' ? r.status : '')}</td>
+        <td>${r.card ? `<a href="${r.url}" target="_blank" rel="noopener">${r.card}</a>` : ''}</td></tr>`; }).join('');
+}
+
+function renderOos(rs) {
+  const by = {}; rs.forEach(r => { by[r.brand] = by[r.brand] || { n: 0, oos: 0 }; by[r.brand].n++; if (r.oos) by[r.brand].oos++; });
+  const brands = Object.entries(by).filter(([, v]) => v.n >= 3).map(([b, v]) => ({ b, p: v.oos / v.n * 100, n: v.n, oos: v.oos })).sort((a, b) => b.p - a.p).slice(0, 12);
+  const o = chartOpts({ indexAxis: 'y' }); o.scales.x.max = 100; o.scales.x.ticks.callback = v => v + '%';
+  o.plugins.tooltip.callbacks = { label: c => `${brands[c.dataIndex].oos} of ${brands[c.dataIndex].n} listings sold out` };
+  $('#oosNote').textContent = brands.length && brands.every(x => x.oos === 0) ? 'No sold-out listings in this view.' : '';
+  mk('#cOos', { type: 'bar', data: { labels: brands.map(x => x.b), datasets: [{ data: brands.map(x => x.p), backgroundColor: brands.map(x => x.p > 0 ? css('--critical') : css('--other')), borderRadius: 4, barThickness: 14, borderSkipped: 'start' }] }, options: o });
+}
+function renderDisc(rs) {
+  const by = {}; rs.forEach(r => { if (r.discPct != null) (by[r.brand] = by[r.brand] || []).push(r.discPct); });
+  const brands = Object.entries(by).filter(([, v]) => v.length >= 2).map(([b, v]) => { v.sort((x, y) => x - y); return { b, m: v[Math.floor(v.length / 2)], n: v.length }; }).sort((a, b) => b.m - a.m).slice(0, 12);
+  const o = chartOpts({ indexAxis: 'y' }); o.scales.x.ticks.callback = v => v + '%';
+  o.plugins.tooltip.callbacks = { label: c => `median ${brands[c.dataIndex].m}% off across ${brands[c.dataIndex].n} listings` };
+  mk('#cDisc', { type: 'bar', data: { labels: brands.map(x => x.b), datasets: [{ data: brands.map(x => x.m), backgroundColor: css('--s1'), borderRadius: 4, barThickness: 14, borderSkipped: 'start' }] }, options: o });
+}
+function renderTrend() {
+  const runs = [...new Set(state.results.map(r => runOf(r.ts)))].sort();
+  const sec = $('#trendSec');
+  if (runs.length < 2 || !state.ranks.length) { sec.hidden = true; return; }
+  sec.hidden = false;
+  const pin = state.pin || [...new Set(state.ranks.map(r => r.pin))].sort()[0];
+  const rows = state.ranks.filter(r => r.kw === state.kw && r.pin === pin && r.matched);
+  const prods = [...new Set(rows.map(r => r.tracked))].slice(0, 6);
+  const cols = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s7'];
+  $('#trendLegend').innerHTML = prods.map((p, i) => `<span><i style="background:${css(cols[i])}"></i>${p}</span>`).join('') + `<span class="note">Pincode ${pin}</span>`;
+  const o = chartOpts(); o.scales.y.reverse = true; o.scales.y.ticks.callback = v => '#' + v; o.scales.y.min = 1;
+  mk('#cTrend', { type: 'line', data: { labels: runs, datasets: prods.map((p, i) => ({ label: p, data: runs.map(d => { const r = rows.find(x => x.tracked === p && runOf(x.ts) === d); return r ? r.pos : null; }), borderColor: css(cols[i]), backgroundColor: css(cols[i]), borderWidth: 2, pointRadius: 4, pointBorderColor: css('--card'), pointBorderWidth: 2, spanGaps: true, tension: 0 })) }, options: o });
+}
+function renderAll(rs, trackedIds) {
+  const q = ($('#q').value || '').toLowerCase();
+  const rows = rs.filter(r => !q || (r.brand + ' ' + r.name).toLowerCase().includes(q)).sort((a, b) => a.pin.localeCompare(b.pin) || a.pos - b.pos);
+  $('#tAll').innerHTML = '<tr><th>Pincode</th><th class="num">#</th><th>Placement</th><th>Brand</th><th>Product</th><th>Pack</th><th class="num">Price</th><th class="num">MRP</th><th class="num">Disc %</th><th class="num">Stock</th><th>Status</th></tr>' +
+    rows.map(r => `<tr${trackedIds.has(r.pid) ? ' style="background:color-mix(in srgb,var(--s3) 8%,transparent)"' : ''}><td>${r.pin}</td><td class="num">${r.pos}</td><td>${r.ad ? '<span class="pill ad">Sponsored</span>' : '<span class="pill org">Organic</span>'}</td><td>${r.brand}</td><td><a href="${r.url}" target="_blank" rel="noopener">${r.name}</a></td><td>${r.pack}</td><td class="num">${fmtRs(r.price)}</td><td class="num">${fmtRs(r.mrp)}</td><td class="num">${r.discPct != null ? r.discPct + '%' : ''}</td><td class="num">${r.inv ?? ''}</td><td>${r.oos ? '<span class="pill oos">✕ Sold out</span>' : '<span class="pill ok">✓ In stock</span>'}</td></tr>`).join('');
+}
+
+// ---------- events
+$('#fKw').onchange = e => { state.kw = e.target.value; render(); };
+$('#fPin').onchange = e => { state.pin = e.target.value; render(); };
+$('#fTop').onchange = e => { state.top = Number(e.target.value); render(); };
+$('#fRun').onchange = e => { state.run = e.target.value; render(); };
+$('#q').oninput = () => { const { rs, trackedIds } = sel(); renderAll(rs, trackedIds); };
+$('#fileIn').onchange = async e => {
+  let results = null, ranks = [];
+  for (const f of e.target.files) {
+    const rows = parseCSV(await f.text());
+    if (rows.length && 'Tracked Product' in rows[0]) ranks = fromRanks(rows);
+    else if (rows.length && 'Position' in rows[0]) results = fromAll(rows);
+  }
+  if (!results) { alert('Could not find an allresults.csv among the selected files.'); return; }
+  load(results, ranks, `Your data (${results.length} rows)`);
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+
+// ---------- boot
+if (window.SAMPLE) { load(fromAll(window.SAMPLE.all), fromRanks(window.SAMPLE.ranks), `Sample data · ${window.SAMPLE.label}`); }
+if (window.SAMPLE && window.SAMPLE.repo) $('#repoLink').href = window.SAMPLE.repo;
+})();
+</script>
+</body>
+</html>
