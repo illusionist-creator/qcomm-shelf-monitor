@@ -76,4 +76,4 @@ This writes `app/index.html` with the data embedded. Open it from disk or host i
 
 ## The service behind this
 
-I run this for consumer brands as a monthly service: a daily capture of your keywords across the cities you sell in, a dashboard like the one above with your SKUs highlighted, and a weekly note on what moved: lost ranks, new sponsored competitors, price cuts by rivals, stock-outs by dark store. Contact: linkedin.com/in/keyur-makwana.
+I run this for consumer brands as a monthly service: a daily capture of your keywords across the cities you sell in, a dashboard like the one above with your SKUs highlighted, and a weekly note on what moved: lost ranks, new sponsored competitors, price cuts by rivals, stock-outs by dark store. Contact: linkedin.com/in/keyur-makwana-450337197.
