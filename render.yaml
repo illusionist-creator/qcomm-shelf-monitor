@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: qcomm-shelf-monitor-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://illusionist-creator.github.io
+      - key: PER_IP_PER_HOUR
+        value: "6"
+      - key: CACHE_TTL
+        value: "21600"

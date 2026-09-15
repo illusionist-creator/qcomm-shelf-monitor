@@ -19,6 +19,7 @@ def main():
     ap.add_argument("--label", default="sample capture")
     ap.add_argument("--repo", default="https://github.com/illusionist-creator/qcomm-shelf-monitor")
     ap.add_argument("--out", default=os.path.join(HERE, "index.html"))
+    ap.add_argument("--api", default="", help="base URL of the live capture API baked into the page (overridable with ?api=)")
     a = ap.parse_args()
     sample = {"label": a.label, "repo": a.repo, "all": rows(a.all_csv), "ranks": rows(a.ranks_csv) if a.ranks_csv else []}
     payload = json.dumps(sample, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
@@ -27,7 +28,7 @@ def main():
     marker = "/*__SAMPLE_DATA__*/"
     if marker not in html:
         sys.exit("marker not found in template")
-    html = html.replace(marker, "window.SAMPLE = " + payload + ";")
+    html = html.replace(marker, "window.SAMPLE = " + payload + ";\nwindow.SHELF_API = " + json.dumps(a.api) + ";")
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"wrote {a.out}: {len(sample['all'])} result rows, {len(sample['ranks'])} rank rows, {os.path.getsize(a.out)//1024} KB")

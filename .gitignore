@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 app/preview*.png
 *.log
+.venv/
+app/shot_*.png
+data/server.log
