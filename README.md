@@ -41,7 +41,7 @@ Useful flags: `--limit 1 --show --debug` to watch one keyword in a visible brows
 python app/build.py path/to/blinkit_allresults.csv path/to/blinkit_ranks.csv --label "Sep 2026 capture"
 ```
 
-This writes `app/index.html` with the data embedded. Open it from disk or host it anywhere static.
+This writes `app/index.html` with the data embedded. Open it from disk or host it anywhere static. The published demo is the copy in `docs/`, served by GitHub Pages; copy `app/index.html` there after a rebuild.
 
 ## Notes and limits
 
