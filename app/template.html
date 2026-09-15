@@ -77,7 +77,13 @@
   .presets{display:flex;gap:6px;flex-wrap:wrap}
   .presets button{font:12px var(--mono);color:var(--ink-2);background:transparent;border:1px dashed var(--line-2);border-radius:6px;padding:4px 8px;cursor:pointer}
   .presets button:hover{color:var(--ink);border-color:var(--ink-3)}
-  .log{font:12.5px/1.65 var(--mono);color:var(--ink-2);background:#05070a;border:1px solid var(--line);border-radius:9px;padding:10px 12px;height:210px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  .console{background:#05070a;border:1px solid var(--line);border-radius:9px;overflow:hidden;cursor:text}
+  .console:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .log{font:12.5px/1.65 var(--mono);color:var(--ink-2);padding:10px 12px 4px;height:180px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  .prompt{display:flex;align-items:center;gap:8px;padding:8px 12px 10px;border-top:1px dashed var(--line)}
+  .prompt .ps{font:600 13px var(--mono);color:var(--accent)}
+  .prompt input{flex:1;min-width:0;font:13px var(--mono);color:var(--ink);background:transparent;border:0;outline:none;caret-color:var(--accent)}
+  .prompt input::placeholder{color:var(--ink-3)}
   .log .ts{color:var(--ink-3)} .log .ok{color:var(--accent)} .log .err{color:#ff7b72} .log .dim{color:var(--ink-3)}
   .cursor{display:inline-block;width:8px;height:15px;background:var(--accent);vertical-align:-2px;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
@@ -192,7 +198,10 @@
       </form>
       <div class="presets" id="presets"></div>
       <div class="bar"><div id="prog"></div></div>
-      <div class="log" id="log"></div>
+      <div class="console" id="console">
+        <div class="log" id="log"></div>
+        <label class="prompt"><span class="ps">$</span><input id="logIn" autocomplete="off" spellcheck="false" placeholder="type a keyword here and press enter, e.g. oats 400001"></label>
+      </div>
     </div>
   </div>
 </div>
@@ -507,9 +516,7 @@ if (!API && /^https?:/.test(location.protocol) && !location.hostname.endsWith('g
 const log = $('#log');
 const stamp = () => new Date().toTimeString().slice(0, 8);
 function line(text, cls) {
-  log.querySelector('.cursor')?.remove();
   log.insertAdjacentHTML('beforeend', `<span class="ts">[${stamp()}]</span> <span class="${cls || ''}">${esc(text)}</span>\n`);
-  log.insertAdjacentHTML('beforeend', '<span class="cursor"></span>');
   log.scrollTop = log.scrollHeight;
 }
 let API_OK = false;
@@ -570,9 +577,25 @@ $('#capForm').onsubmit = async e => {
   } catch (err) { line('error: ' + err.message, 'err'); }
   finally { $('#runBtn').disabled = false; setTimeout(() => $('#prog').style.width = '0', 1500); }
 };
+// the console prompt: "oats", "oats 400001", or "capture --keyword oats --pincode 400001"
+$('#console').addEventListener('click', e => { if (!e.target.closest('a') && !getSelection().toString()) $('#logIn').focus(); });
+$('#logIn').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  let v = e.target.value.trim(); if (!v) return;
+  const pin = (v.match(/\b\d{6}\b/) || [])[0];
+  const top = (v.match(/--top\s+(\d+)/) || [])[1];
+  const kw = v.replace(/--top\s+\d+/, '').replace(/\b\d{6}\b/, '').replace(/^\$?\s*capture\b/, '').replace(/--(keyword|pincode)/g, '').replace(/["']/g, '').replace(/\s+/g, ' ').trim();
+  if (kw.length < 2) { line('type a keyword of 2+ characters, optionally followed by a pincode', 'err'); return; }
+  $('#inKw').value = kw;
+  if (pin) $('#inPin').value = pin; else if (!$('#inPin').value) $('#inPin').value = '560001';
+  if (top && [...$('#inTop').options].some(o => o.value === top)) $('#inTop').value = top;
+  e.target.value = '';
+  $('#capForm').requestSubmit();
+});
 ['peanut butter', 'dog food', 'face wash', 'protein bar', 'oats', 'green tea', 'baby wipes'].forEach(k => {
   const b = document.createElement('button'); b.type = 'button'; b.textContent = k;
-  b.onclick = () => { $('#inKw').value = k; if (!$('#inPin').value) $('#inPin').value = '560001'; $('#inKw').focus(); };
+  b.onclick = () => { $('#inKw').value = k; if (!$('#inPin').value) $('#inPin').value = '560001'; $('#capForm').requestSubmit(); };
   $('#presets').appendChild(b);
 });
 
